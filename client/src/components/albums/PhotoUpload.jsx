@@ -5,6 +5,62 @@ import photoService from '../../services/photoService';
 import characterService from '../../services/characterService';
 import './PhotoUpload.css';
 
+// Compress image to reduce file size for upload
+const compressImage = (file, maxSizeMB = 2, maxWidth = 1920) => {
+  return new Promise((resolve) => {
+    // If file is already small enough, return as-is
+    if (file.size <= maxSizeMB * 1024 * 1024) {
+      resolve(file);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let { width, height } = img;
+
+        // Scale down if too wide
+        if (width > maxWidth) {
+          height = (height * maxWidth) / width;
+          width = maxWidth;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Start with high quality and reduce until file is small enough
+        let quality = 0.8;
+        const tryCompress = () => {
+          canvas.toBlob(
+            (blob) => {
+              if (blob.size > maxSizeMB * 1024 * 1024 && quality > 0.3) {
+                quality -= 0.1;
+                tryCompress();
+              } else {
+                const compressedFile = new File([blob], file.name, {
+                  type: 'image/jpeg',
+                  lastModified: Date.now()
+                });
+                resolve(compressedFile);
+              }
+            },
+            'image/jpeg',
+            quality
+          );
+        };
+        tryCompress();
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+};
+
 const PhotoUpload = ({ albumId, onUploadComplete }) => {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [previews, setPreviews] = useState([]);
@@ -39,10 +95,10 @@ const PhotoUpload = ({ albumId, onUploadComplete }) => {
       return;
     }
 
-    // Check file sizes (10MB limit)
-    const oversizedFiles = imageFiles.filter(file => file.size > 10 * 1024 * 1024);
+    // Check file sizes (20MB limit - will be compressed to 2MB)
+    const oversizedFiles = imageFiles.filter(file => file.size > 20 * 1024 * 1024);
     if (oversizedFiles.length > 0) {
-      toast.error(`${oversizedFiles.length} file(s) exceed the 10MB size limit`);
+      toast.error(`${oversizedFiles.length} file(s) exceed the 20MB size limit`);
       return;
     }
 
@@ -115,9 +171,21 @@ const PhotoUpload = ({ albumId, onUploadComplete }) => {
     setUploadProgress({});
 
     try {
+      // Compress images before uploading (max 2MB each for Vercel limits)
+      toast.info('Compressing images...');
+      const compressedFiles = await Promise.all(
+        selectedFiles.map(file => compressImage(file, 2, 1920))
+      );
+
       const captions = previews.map(p => p.caption);
       const taggedCharacters = previews.map(p => p.taggedCharacters.map(c => c._id));
-      await photoService.uploadPhotos(albumId, selectedFiles, captions, taggedCharacters);
+
+      // Upload one at a time to stay under Vercel's 4.5MB limit
+      for (let i = 0; i < compressedFiles.length; i++) {
+        setUploadProgress(prev => ({ ...prev, [i]: 50 }));
+        await photoService.uploadPhotos(albumId, [compressedFiles[i]], [captions[i]], [taggedCharacters[i]]);
+        setUploadProgress(prev => ({ ...prev, [i]: 100 }));
+      }
 
       toast.success(`${selectedFiles.length} photo(s) uploaded successfully!`);
 
@@ -155,7 +223,7 @@ const PhotoUpload = ({ albumId, onUploadComplete }) => {
             Drag and drop photos here, or click to browse
           </p>
           <p className="dropzone-subtext">
-            Supports: JPG, PNG, GIF, WebP (max 10MB each, up to 20 photos)
+            Supports: JPG, PNG, GIF, WebP (auto-compressed, up to 20 photos)
           </p>
           <input
             id="file-input"
