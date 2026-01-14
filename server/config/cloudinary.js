@@ -1,5 +1,4 @@
 const cloudinary = require('cloudinary').v2;
-const CloudinaryStorage = require('multer-storage-cloudinary');
 const multer = require('multer');
 
 cloudinary.config({
@@ -8,29 +7,43 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-// Storage for character images (profile & banner) - v2.x API
-const characterStorage = new CloudinaryStorage({
-  cloudinary: cloudinary,
-  folder: 'dnd-space/characters',
-  allowedFormats: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
-  transformation: [{ width: 800, height: 800, crop: 'limit' }]
-});
+// Use memory storage for serverless compatibility
+const storage = multer.memoryStorage();
 
-// Storage for album photos - v2.x API
-const photoStorage = new CloudinaryStorage({
-  cloudinary: cloudinary,
-  folder: 'dnd-space/photos',
-  allowedFormats: ['jpg', 'jpeg', 'png', 'gif', 'webp']
-});
+const imageFilter = (req, file, cb) => {
+  const allowedTypes = /jpeg|jpg|png|gif|webp/;
+  if (allowedTypes.test(file.mimetype)) {
+    return cb(null, true);
+  }
+  cb(new Error('Only image files are allowed!'));
+};
 
 const uploadCharacterImage = multer({
-  storage: characterStorage,
+  storage: storage,
+  fileFilter: imageFilter,
   limits: { fileSize: 5 * 1024 * 1024 } // 5MB
 });
 
 const uploadPhoto = multer({
-  storage: photoStorage,
+  storage: storage,
+  fileFilter: imageFilter,
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB
 });
 
-module.exports = { cloudinary, uploadCharacterImage, uploadPhoto };
+// Helper function to upload buffer to Cloudinary
+const uploadToCloudinary = (buffer, folder, options = {}) => {
+  return new Promise((resolve, reject) => {
+    const uploadOptions = {
+      folder: folder,
+      resource_type: 'image',
+      ...options
+    };
+
+    cloudinary.uploader.upload_stream(uploadOptions, (error, result) => {
+      if (error) reject(error);
+      else resolve(result);
+    }).end(buffer);
+  });
+};
+
+module.exports = { cloudinary, uploadCharacterImage, uploadPhoto, uploadToCloudinary };

@@ -2,6 +2,7 @@ const { validationResult } = require('express-validator');
 const Photo = require('../models/Photo');
 const Album = require('../models/Album');
 const Character = require('../models/Character');
+const { uploadToCloudinary } = require('../config/cloudinary');
 
 // @desc    Upload photos to an album
 // @route   POST /api/photos/upload
@@ -35,11 +36,15 @@ exports.uploadPhotos = async (req, res, next) => {
 
     for (let i = 0; i < req.files.length; i++) {
       const file = req.files[i];
+
+      // Upload to Cloudinary from memory buffer
+      const result = await uploadToCloudinary(file.buffer, 'dnd-space/photos');
+
       const photo = await Photo.create({
         album: albumId,
         character: album.character._id,
-        imageUrl: file.path, // Cloudinary URL
-        cloudinaryId: file.filename, // Cloudinary public_id for deletion
+        imageUrl: result.secure_url, // Cloudinary URL
+        cloudinaryId: result.public_id, // Cloudinary public_id for deletion
         caption: captionsArray[i] || '',
         taggedCharacters: taggedCharactersArray[i] || [],
         order: nextOrder++

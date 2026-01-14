@@ -1,5 +1,5 @@
 const Character = require('../models/Character');
-const { cloudinary } = require('../config/cloudinary');
+const { cloudinary, uploadToCloudinary } = require('../config/cloudinary');
 
 // @desc    Get all characters (campaign directory)
 // @route   GET /api/characters
@@ -255,24 +255,27 @@ exports.uploadImage = async (req, res, next) => {
       }
     }
 
-    // Update character with new image (Cloudinary URL)
-    const imageUrl = req.file.path; // Cloudinary URL
+    // Upload to Cloudinary from memory buffer
+    const uploadOptions = imageType === 'profile'
+      ? { transformation: [{ width: 800, height: 800, crop: 'limit' }] }
+      : {};
+    const result = await uploadToCloudinary(req.file.buffer, 'dnd-space/characters', uploadOptions);
 
     if (imageType === 'profile') {
-      character.profileImage = imageUrl;
-      character.profileImageCloudinaryId = req.file.filename; // Cloudinary public_id
+      character.profileImage = result.secure_url;
+      character.profileImageCloudinaryId = result.public_id;
     } else {
-      character.bannerImage = imageUrl;
-      character.bannerImageCloudinaryId = req.file.filename; // Cloudinary public_id
+      character.bannerImage = result.secure_url;
+      character.bannerImageCloudinaryId = result.public_id;
     }
 
     await character.save();
 
-    console.log('Image uploaded successfully:', imageUrl);
+    console.log('Image uploaded successfully:', result.secure_url);
 
     res.json({
       message: `${imageType} image uploaded successfully`,
-      imageUrl: imageUrl
+      imageUrl: result.secure_url
     });
   } catch (error) {
     console.error('Error uploading image:', error);
