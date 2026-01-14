@@ -8,23 +8,19 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-// Storage for character images (profile & banner)
+// Storage for character images (profile & banner) - v2.x API
 const characterStorage = new CloudinaryStorage({
   cloudinary: cloudinary,
-  params: {
-    folder: 'dnd-space/characters',
-    allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
-    transformation: [{ width: 800, height: 800, crop: 'limit' }]
-  }
+  folder: 'dnd-space/characters',
+  allowedFormats: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
+  transformation: [{ width: 800, height: 800, crop: 'limit' }]
 });
 
-// Storage for album photos
+// Storage for album photos - v2.x API
 const photoStorage = new CloudinaryStorage({
   cloudinary: cloudinary,
-  params: {
-    folder: 'dnd-space/photos',
-    allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp']
-  }
+  folder: 'dnd-space/photos',
+  allowedFormats: ['jpg', 'jpeg', 'png', 'gif', 'webp']
 });
 
 const uploadCharacterImage = multer({
