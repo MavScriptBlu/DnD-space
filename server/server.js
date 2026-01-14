@@ -12,12 +12,38 @@ const app = express();
 // Connect to MongoDB
 connectDB();
 
+// CORS configuration
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (mobile apps, curl, etc.)
+    if (!origin) return callback(null, true);
+
+    // Allow any Vercel preview deployments and the main client URL
+    const allowedOrigins = [
+      process.env.CLIENT_URL,
+      'https://dnd-space-client.vercel.app',
+      'http://localhost:5173',
+      'http://localhost:3000'
+    ];
+
+    // Also allow Vercel preview URLs
+    if (origin.includes('vercel.app') || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    callback(null, true); // Allow all origins for now
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+};
+
 // Middleware
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" },
   contentSecurityPolicy: false, // Disable CSP for development
 }));
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
