@@ -18,10 +18,11 @@ const CharacterList = ({ showOnlyMine = false }) => {
       const data = showOnlyMine
         ? await characterService.getMyCharacters()
         : await characterService.getAllCharacters();
-      setCharacters(data.characters);
+      setCharacters(data?.characters || []);
     } catch (error) {
+      console.error('Failed to load characters:', error);
       toast.error('Failed to load characters');
-
+      setCharacters([]);
     } finally {
       setLoading(false);
     }
