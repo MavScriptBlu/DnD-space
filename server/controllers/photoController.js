@@ -38,8 +38,8 @@ exports.uploadPhotos = async (req, res, next) => {
       const photo = await Photo.create({
         album: albumId,
         character: album.character._id,
-        imageUrl: `/uploads/photos/${file.filename}`,
-        cloudinaryId: file.filename, // Store filename for local deletion
+        imageUrl: file.path, // Cloudinary URL
+        cloudinaryId: file.filename, // Cloudinary public_id for deletion
         caption: captionsArray[i] || '',
         taggedCharacters: taggedCharactersArray[i] || [],
         order: nextOrder++
@@ -125,16 +125,12 @@ exports.deletePhoto = async (req, res, next) => {
       return res.status(403).json({ message: 'Not authorized to delete this photo' });
     }
 
-    // Delete from local file system
-    const fs = require('fs');
-    const path = require('path');
+    // Delete from Cloudinary
+    const { cloudinary } = require('../config/cloudinary');
     try {
-      const filePath = path.join(__dirname, '../../uploads/photos', photo.cloudinaryId);
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-      }
+      await cloudinary.uploader.destroy(photo.cloudinaryId);
     } catch (error) {
-      console.error(`Failed to delete image file: ${photo.cloudinaryId}`, error);
+      console.error(`Failed to delete image from Cloudinary: ${photo.cloudinaryId}`, error);
     }
 
     // Update album photo count and cover photo if needed

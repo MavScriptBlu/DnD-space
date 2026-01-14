@@ -1,7 +1,7 @@
 const express = require('express');
 const characterController = require('../controllers/characterController');
 const auth = require('../middleware/auth');
-const { uploadCharacterImage } = require('../config/fileUpload');
+const { uploadCharacterImage } = require('../config/cloudinary');
 
 const router = express.Router();
 

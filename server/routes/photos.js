@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { body } = require('express-validator');
 const protect = require('../middleware/auth');
-const { uploadPhoto } = require('../config/fileUpload');
+const { uploadPhoto } = require('../config/cloudinary');
 const {
   uploadPhotos,
   updatePhoto,

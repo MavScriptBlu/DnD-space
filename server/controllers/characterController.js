@@ -138,28 +138,19 @@ exports.deleteCharacter = async (req, res, next) => {
       return res.status(403).json({ message: 'Not authorized to delete this character' });
     }
 
-    const fs = require('fs');
-    const path = require('path');
-
-    // Delete character images from local storage if they exist
+    // Delete character images from Cloudinary if they exist
     if (character.profileImageCloudinaryId) {
       try {
-        const filePath = path.join(__dirname, '../../uploads/characters', character.profileImageCloudinaryId);
-        if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath);
-        }
+        await cloudinary.uploader.destroy(character.profileImageCloudinaryId);
       } catch (error) {
-        console.error(`Failed to delete profile image: ${character.profileImageCloudinaryId}`, error);
+        console.error(`Failed to delete profile image from Cloudinary: ${character.profileImageCloudinaryId}`, error);
       }
     }
     if (character.bannerImageCloudinaryId) {
       try {
-        const filePath = path.join(__dirname, '../../uploads/characters', character.bannerImageCloudinaryId);
-        if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath);
-        }
+        await cloudinary.uploader.destroy(character.bannerImageCloudinaryId);
       } catch (error) {
-        console.error(`Failed to delete banner image: ${character.bannerImageCloudinaryId}`, error);
+        console.error(`Failed to delete banner image from Cloudinary: ${character.bannerImageCloudinaryId}`, error);
       }
     }
 
@@ -173,33 +164,17 @@ exports.deleteCharacter = async (req, res, next) => {
       const photos = await Photo.find({ album: album._id });
       for (const photo of photos) {
         try {
-          const photoPath = path.join(__dirname, '../../uploads/photos', photo.cloudinaryId);
-          if (fs.existsSync(photoPath)) {
-            fs.unlinkSync(photoPath);
-          }
+          await cloudinary.uploader.destroy(photo.cloudinaryId);
         } catch (error) {
-          console.error(`Failed to delete photo: ${photo.cloudinaryId}`, error);
+          console.error(`Failed to delete photo from Cloudinary: ${photo.cloudinaryId}`, error);
         }
       }
       await Photo.deleteMany({ album: album._id });
       await album.deleteOne();
     }
 
-    // Delete all comments by this character and photos in comments
+    // Delete all comments by this character
     const Comment = require('../models/Comment');
-    const comments = await Comment.find({ author: character._id });
-    for (const comment of comments) {
-      if (comment.photo && comment.photo.filename) {
-        try {
-          const commentPhotoPath = path.join(__dirname, '../../uploads/photos', comment.photo.filename);
-          if (fs.existsSync(commentPhotoPath)) {
-            fs.unlinkSync(commentPhotoPath);
-          }
-        } catch (error) {
-          console.error(`Failed to delete comment photo: ${comment.photo.filename}`, error);
-        }
-      }
-    }
     await Comment.deleteMany({ author: character._id });
 
     // Delete all comments on this character's wall
@@ -265,39 +240,30 @@ exports.uploadImage = async (req, res, next) => {
 
     const imageType = req.body.imageType || 'profile'; // 'profile' or 'banner'
 
-    // Delete old image from local storage if exists
-    const fs = require('fs');
-    const path = require('path');
-
+    // Delete old image from Cloudinary if exists
     if (imageType === 'profile' && character.profileImageCloudinaryId) {
       try {
-        const filePath = path.join(__dirname, '../../uploads/characters', character.profileImageCloudinaryId);
-        if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath);
-        }
+        await cloudinary.uploader.destroy(character.profileImageCloudinaryId);
       } catch (error) {
-        console.error(`Failed to delete old profile image: ${character.profileImageCloudinaryId}`, error);
+        console.error(`Failed to delete old profile image from Cloudinary: ${character.profileImageCloudinaryId}`, error);
       }
     } else if (imageType === 'banner' && character.bannerImageCloudinaryId) {
       try {
-        const filePath = path.join(__dirname, '../../uploads/characters', character.bannerImageCloudinaryId);
-        if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath);
-        }
+        await cloudinary.uploader.destroy(character.bannerImageCloudinaryId);
       } catch (error) {
-        console.error(`Failed to delete old banner image: ${character.bannerImageCloudinaryId}`, error);
+        console.error(`Failed to delete old banner image from Cloudinary: ${character.bannerImageCloudinaryId}`, error);
       }
     }
 
-    // Update character with new image
-    const imageUrl = `/uploads/characters/${req.file.filename}`;
+    // Update character with new image (Cloudinary URL)
+    const imageUrl = req.file.path; // Cloudinary URL
 
     if (imageType === 'profile') {
       character.profileImage = imageUrl;
-      character.profileImageCloudinaryId = req.file.filename;
+      character.profileImageCloudinaryId = req.file.filename; // Cloudinary public_id
     } else {
       character.bannerImage = imageUrl;
-      character.bannerImageCloudinaryId = req.file.filename;
+      character.bannerImageCloudinaryId = req.file.filename; // Cloudinary public_id
     }
 
     await character.save();
